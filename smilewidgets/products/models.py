@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class Product(models.Model):
@@ -6,9 +7,31 @@ class Product(models.Model):
     code = models.CharField(max_length=10, help_text='Internal facing reference to product')
     price = models.PositiveIntegerField(help_text='Price of product in cents')
 
+    def get_price(self, date):
+        product_price_qs = self.prices.filter(
+            Q(date_start__lte=date, date_end__gte=date) |
+            Q(date_start__lte=date, date_end__isnull=True)
+        )
+        if product_price_qs.first():
+            return product_price_qs.first().price
+        return self.price
 
     def __str__(self):
         return '{} - {}'.format(self.name, self.code)
+
+
+class GiftCardQuerySet(models.QuerySet):
+    def gift_card_for_date(self, card_code, date):
+        return self.filter(
+            Q(
+                date_start__lte=date,
+                date_end__gte=date,
+            ) |
+            Q(
+                date_start__lte=date,
+                date_end__isnull=True,
+            )
+        ).get(code=card_code)
 
 
 class GiftCard(models.Model):
@@ -16,6 +39,8 @@ class GiftCard(models.Model):
     amount = models.PositiveIntegerField(help_text='Value of gift card in cents')
     date_start = models.DateField()
     date_end = models.DateField(blank=True, null=True)
+
+    objects = GiftCardQuerySet.as_manager()
 
     def __str__(self):
         return '{} - {}'.format(self.code, self.formatted_amount)
@@ -33,6 +58,7 @@ class ProductPrice(models.Model):
         Product,
         null=True,
         on_delete=models.CASCADE,
+        related_name='prices',
 
     )
 
