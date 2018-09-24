@@ -6,22 +6,12 @@ from products.models import Product, GiftCard
 from .serializers import QuerySerializer
 
 
-def calculate_discount(gift_card_code, date):
-    discount = 0
-
-    if gift_card_code:
-        gift_card = GiftCard.objects.gift_card_for_date(gift_card_code, date)
-        discount = gift_card.amount
-
-    return discount
-
-
 class RetrieveProductPriceAPIView(RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         data = {
-            'productCode': request.GET.get('productCode'),
+            'product_code': request.GET.get('product_code'),
             'date': request.GET.get('date'),
-            'giftCardCode': request.GET.get('giftCardCode') or "",
+            'gift_card_code': request.GET.get('gift_card_code', ''),
         }
 
         serializer = QuerySerializer(data=data)
@@ -32,20 +22,16 @@ class RetrieveProductPriceAPIView(RetrieveAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        product_price = (
-            Product.objects.get(
-                code=serializer.data['productCode']
-            ).get_price(
-                date=serializer.data['date']
-            )
-        )
+        product = Product.objects.filter(
+            code=serializer.data['product_code']
+        ).first()
 
-        discount = calculate_discount(
-            serializer.data['giftCardCode'],
+        final_price = product.get_discount_price(
+            serializer.data['gift_card_code'],
             serializer.data['date'],
         )
 
         return JsonResponse(
-            data={'price': max(product_price - discount, 0)},
+            data={'price': final_price},
             status=status.HTTP_200_OK,
         )

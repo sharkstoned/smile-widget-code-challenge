@@ -16,6 +16,17 @@ class Product(models.Model):
             return product_price_qs.first().price
         return self.price
 
+    def get_discount_price(self, gift_card_code, date):
+        discount = 0
+
+        if gift_card_code:
+            gift_card = GiftCard.objects.gift_card_for_date(gift_card_code, date)
+            discount = gift_card.amount
+
+        default_price = self.get_price(date=date)
+
+        return max(default_price - discount, 0)
+
     def __str__(self):
         return '{} - {}'.format(self.name, self.code)
 
